@@ -1,45 +1,63 @@
 import streamlit as st
-import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.cluster import KMeans
 
-# --- App Title and Description ---
-st.title("My First Streamlit App")
-st.write("This is a simple app to demonstrate the basic functionalities of Streamlit.")
+# Title
+st.title("K-Means Clustering on Mall Customers Dataset")
 
-# --- Interactive Widgets in the Sidebar ---
-st.sidebar.header("User Input Features")
+# Upload dataset
+uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
+if uploaded_file is not None:
+    dataset = pd.read_csv(uploaded_file)
+    st.write("### Dataset Preview")
+    st.write(dataset.head())
 
-# Text Input
-user_name = st.sidebar.text_input("What is your name?", "Nilesh Ram")
+    # Select features
+    st.write("### Feature Selection")
+    x_col = st.selectbox("Select X-axis feature", dataset.columns)
+    y_col = st.selectbox("Select Y-axis feature", dataset.columns)
+    X = dataset[[x_col, y_col]].values
 
-# Slider
-age = st.sidebar.slider("Select your age", 0, 100, 25)
+    # Elbow Method
+    st.write("### Elbow Method")
+    wcss = []
+    for i in range(1, 11):
+        kmeans = KMeans(n_clusters=i, init="k-means++", random_state=0)
+        kmeans.fit(X)
+        wcss.append(kmeans.inertia_)
 
-# Selectbox
-favorite_color = st.sidebar.selectbox("What is your favorite color?", ["Blue", "Red", "Green", "Yellow"])
+    fig, ax = plt.subplots()
+    ax.plot(range(1, 11), wcss, marker="o")
+    ax.set_title("The Elbow Method")
+    ax.set_xlabel("Number of clusters")
+    ax.set_ylabel("WCSS")
+    st.pyplot(fig)
 
-# --- Main Page Content ---
-st.header(f"Welcome, {user_name}!")
-st.write(f"You are {age} years old and your favorite color is {favorite_color}.")
+    # Choose number of clusters
+    n_clusters = st.slider("Select number of clusters", 2, 10, 5)
 
-# --- Displaying Data ---
-st.subheader("Here's some random data:")
+    # Train KMeans
+    kmeans = KMeans(n_clusters=n_clusters, init="k-means++", random_state=0)
+    y_kmeans = kmeans.fit_predict(X)
 
-# Create a sample DataFrame
-data = pd.DataFrame(
-    np.random.randn(10, 5),
-    columns=('col %d' % i for i in range(5))
-)
+    # Visualize clusters
+    st.write("### Clusters Visualization")
+    fig, ax = plt.subplots()
+    colors = ["red", "blue", "green", "cyan", "magenta", "orange", "purple", "brown", "pink", "gray"]
 
-st.dataframe(data)
+    for i in range(n_clusters):
+        ax.scatter(X[y_kmeans == i, 0], X[y_kmeans == i, 1], s=100, c=colors[i], label=f"Cluster {i+1}")
 
-# --- Checkbox to show/hide content ---
-if st.checkbox("Show raw data"):
-    st.subheader("Raw Data")
-    st.write(data)
+    ax.scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], s=300, c="yellow", label="Centroids")
+    ax.set_title("Clusters of Customers")
+    ax.set_xlabel(x_col)
+    ax.set_ylabel(y_col)
+    ax.legend()
+    st.pyplot(fig)
 
-# --- Button to trigger an action ---
-if st.button("Say hello"):
-    st.write("Hello there!")
-else:
-    st.write("Goodbye")
+    # Add cluster column to dataset
+    dataset["Cluster"] = y_kmeans
+    st.write("### Dataset with Cluster Labels")
+    st.write(dataset.head())
